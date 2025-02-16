@@ -1,12 +1,95 @@
-// import React from 'react';
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
+import { auth } from "../utils/firebase";
+import { useEffect } from "react";
+
+import { useDispatch , useSelector} from "react-redux";
+import { addUser, removeUser } from "../utils/userSlice";
+import { LOGO, SUPPORTED_LANGUAGES } from "../utils/constants";
+import { toggleGptSearchView } from "../utils/gptSlice";
+import { changeLanguage } from "../utils/configSlice";
+
 
 const Header = () => {
-    return (
-        <div className="absolute w-full px-28 bg-gradient-to-b from-black z-10">
-            <img className="ml-16 scale-150 w-32" src="https://imgs.search.brave.com/2BhSv6raW7E3wOPTAUGGWArZjbqzyZvd68eVqR8ezn0/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9jZG4x/Lmljb25maW5kZXIu/Y29tL2RhdGEvaWNv/bnMvbG9nb3MtYnJh/bmRzLWluLWNvbG9y/cy83NTAwL05ldGZs/aXhfTG9nb19SR0It/NTEyLnBuZw" />
-        </div>
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const user = useSelector((store) => store.user);
+  const showGptSearch = useSelector((store) => store.gpt.showGptSearch);
 
-    );
+
+  const handleSignOut = () => {
+    signOut(auth)
+    .then(() => {})
+      .catch((error) => {
+        navigate("/error");
+      });
+  };
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        const { uid, email, displayName, photoURL } = user;
+        dispatch(
+          addUser({
+            uid: uid,
+            email: email,
+            displayName: displayName,
+            photoURL: photoURL,
+          })
+        );
+        navigate("/browse");
+      } else {
+        dispatch(removeUser());
+        navigate("/");
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleGptSearchClick = () => {
+    // Toggle GPT Search
+    dispatch(toggleGptSearchView());
+  };
+  const handleLanguageChange = (e) => {
+    dispatch(changeLanguage(e.target.value));
+  };
+  
+  return (
+    <div className="absolute w-screen px-8 py-2 bg-gradient-to-b from-black z-10 flex justify-between">
+      
+
+      <img className="ml-16 scale-150 w-32" src={LOGO} alt="logo" />
+
+      {user && (
+        <div className="flex p-2">
+          {showGptSearch && (
+            <select
+              className="p-2 px-4 m-2 bg-gray-600 rounded-lg text-white"
+              onChange={handleLanguageChange}
+            >
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <option key={lang.identifier} value={lang.identifier}>
+                  {lang.name}
+                </option>
+              ))}
+            </select>
+          )}
+          <button
+            className="py-2 px-4 mx-4 my-2 bg-purple-600 text-white rounded-xl hover:bg-purple-900"
+            onClick={handleGptSearchClick}
+          >
+            {showGptSearch ? "Homepage" : "GPT Search"}
+          </button>
+          <img className="w-12 h-12" alt="usericon" src={user?.photoURL} />
+          <button onClick={handleSignOut} className="font-bold text-white ">
+            (Sign Out)
+          </button>
+        </div>
+      )}
+    </div>
+
+  );
 };
 
 export default Header;
